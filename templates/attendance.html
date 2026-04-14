@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+{% block page_title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2 class="page-h2">Daily Attendance</h2>
+    <p class="page-sub">Mark employee attendance for the selected date</p>
+  </div>
+  <a href="{{ url_for('attendance_summary') }}" class="btn-secondary-custom">
+    <i class="bi bi-bar-chart me-1"></i>View Summary
+  </a>
+</div>
+
+<!-- Date Picker -->
+<div class="date-bar mb-4">
+  <label class="date-label"><i class="bi bi-calendar3 me-2"></i>Select Date:</label>
+  <input type="date" id="datePicker" class="form-input date-input"
+         value="{{ selected_date }}" max="{{ today }}"/>
+  <button class="btn-primary-custom" onclick="changeDate()">
+    <i class="bi bi-arrow-right"></i> Go
+  </button>
+</div>
+
+<!-- Attendance Cards -->
+{% if employees %}
+<div class="row g-3" id="attCards">
+  {% for e in employees %}
+  <div class="col-xl-4 col-md-6">
+    <div class="att-card" id="card-{{ e['id'] }}">
+      <div class="att-emp-info">
+        <div class="emp-avatar">{{ e['name'][0].upper() }}</div>
+        <div>
+          <div class="att-emp-name">{{ e['name'] }}</div>
+          <div class="att-emp-meta">{{ e['gender'] or 'Employee' }} · Age {{ e['age'] }}</div>
+        </div>
+      </div>
+
+      <!-- Status Badge -->
+      {% set status = att_map.get(e['id']) %}
+      <div class="att-status" id="status-{{ e['id'] }}">
+        {% if status %}
+        <span class="badge-status {% if status == 'Present' %}badge-present{% else %}badge-absent{% endif %}">
+          {% if status == 'Present' %}✅{% else %}❌{% endif %} {{ status }}
+        </span>
+        {% else %}
+        <span class="badge-status badge-unmarked">— Not Marked</span>
+        {% endif %}
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="att-actions">
+        <button class="att-btn att-btn--present {% if status == 'Present' %}att-btn--active-p{% endif %}"
+                id="btn-present-{{ e['id'] }}"
+                onclick="markAtt({{ e['id'] }}, 'Present', '{{ selected_date }}')">
+          <i class="bi bi-check-circle-fill me-1"></i>Present
+        </button>
+        <button class="att-btn att-btn--absent {% if status == 'Absent' %}att-btn--active-a{% endif %}"
+                id="btn-absent-{{ e['id'] }}"
+                onclick="markAtt({{ e['id'] }}, 'Absent', '{{ selected_date }}')">
+          <i class="bi bi-x-circle-fill me-1"></i>Absent
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Quick mark all -->
+<div class="quick-actions mt-4">
+  <span class="text-muted me-3">Quick actions:</span>
+  <button class="btn-outline-custom me-2" onclick="markAll('Present')">
+    <i class="bi bi-check-all me-1"></i>Mark All Present
+  </button>
+  <button class="btn-outline-danger-custom" onclick="markAll('Absent')">
+    <i class="bi bi-x-lg me-1"></i>Mark All Absent
+  </button>
+</div>
+
+{% else %}
+<div class="empty-full">
+  <i class="bi bi-people"></i>
+  <p>No employees found. <a href="{{ url_for('employees') }}">Add employees first.</a></p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const empIds = [{% for e in employees %}{{ e['id'] }},{% endfor %}];
+
+function changeDate() {
+  const d = document.getElementById('datePicker').value;
+  window.location.href = `/attendance?date=${d}`;
+}
+
+function markAtt(empId, status, date) {
+  fetch('/attendance/mark', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ emp_id: empId, date: date, status: status })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      // Update badge
+      const badge = document.getElementById('status-' + empId);
+      const isPresent = status === 'Present';
+      badge.innerHTML = `<span class="badge-status ${isPresent ? 'badge-present' : 'badge-absent'}">
+        ${isPresent ? '✅' : '❌'} ${status}
+      </span>`;
+
+      // Update button states
+      document.getElementById('btn-present-' + empId).classList.toggle('att-btn--active-p', isPresent);
+      document.getElementById('btn-absent-'  + empId).classList.toggle('att-btn--active-a', !isPresent);
+
+      // Flash card
+      const card = document.getElementById('card-' + empId);
+      card.classList.add('att-card--flash');
+      setTimeout(() => card.classList.remove('att-card--flash'), 600);
+    }
+  });
+}
+
+function markAll(status) {
+  const date = document.getElementById('datePicker').value;
+  empIds.forEach(id => markAtt(id, status, date));
+}
+</script>
+{% endblock %}

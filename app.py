@@ -629,7 +629,7 @@ def chart_attendance():
 
 
 if __name__ == '__main__':
-    init_db
+    init_db()
     print("Database initialized")
     print("Starting Employee Management System...")
     print("Open: http://127.0.0.1:5000")
